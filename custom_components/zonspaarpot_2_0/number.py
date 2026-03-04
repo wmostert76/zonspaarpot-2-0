@@ -39,13 +39,23 @@ class ZonspaarpotSetLoadNumber(ZonspaarpotEntity, NumberEntity):
 
     @property
     def native_value(self) -> float | None:
-        """Return currently active additional consumption."""
-        value = self.coordinator.data.actual.get("actual", {}).get("additional_consumption")
+        """Return configured maximum load."""
+        value = self.coordinator.data.config.get("load", {}).get("maxwatt")
         if value is None:
             return None
         return float(value)
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new additional consumption."""
-        await self._runtime_data.api.async_set_load(int(round(value)))
+        """Persist new maximum load configuration."""
+        config_load = self.coordinator.data.config.get("load", {})
+        wait_after_update = int(config_load.get("waitafterupdate", 1))
+        awake = int(config_load.get("awake", 30))
+        sleep = int(config_load.get("sleep", 0))
+
+        await self._runtime_data.api.async_save_load_config(
+            watt=int(round(value)),
+            wait_after_update=wait_after_update,
+            awake=awake,
+            sleep=sleep,
+        )
         await self.coordinator.async_request_refresh()

@@ -63,3 +63,46 @@ class ZonspaarpotApiClient:
     async def async_set_load(self, watt: int) -> dict[str, Any]:
         """Set additional consumption."""
         return await self._request_json("PUT", "/api/v2/setload", {"watt": watt})
+
+    async def async_save_load_config(
+        self,
+        watt: int,
+        wait_after_update: int,
+        awake: int,
+        sleep: int,
+    ) -> None:
+        """Persist load configuration from the web form endpoint."""
+        url = f"{self._base_url}/saveconfigload"
+        payload = {
+            "watt": str(watt),
+            "ws": str(wait_after_update),
+            "awake": str(awake),
+            "sleep": str(sleep),
+        }
+        try:
+            async with asyncio.timeout(DEFAULT_TIMEOUT):
+                async with self._session.post(url, data=payload) as response:
+                    if response.status >= 400:
+                        body = await response.text()
+                        raise ZonspaarpotApiError(
+                            f"POST /saveconfigload failed ({response.status}): {body}"
+                        )
+                    await response.read()
+        except TimeoutError as err:
+            raise ZonspaarpotApiConnectionError("Timeout while calling POST /saveconfigload") from err
+        except ClientError as err:
+            try:
+                config = await self.async_get_config()
+                load = config.get("load", {})
+                if (
+                    int(load.get("maxwatt", -1)) == watt
+                    and int(load.get("waitafterupdate", -1)) == wait_after_update
+                    and int(load.get("awake", -1)) == awake
+                    and int(load.get("sleep", -1)) == sleep
+                ):
+                    return
+            except ZonspaarpotApiError:
+                pass
+            raise ZonspaarpotApiConnectionError(
+                f"Connection error while calling POST /saveconfigload: {err}"
+            ) from err
