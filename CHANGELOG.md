@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3
+
+- Add repository `icon.png` for HACS card display
+- Add component-local `icon.png` for consistency
+
 ## 1.0.0
 
 - Initial release
